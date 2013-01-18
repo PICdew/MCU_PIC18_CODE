@@ -731,6 +731,12 @@ void DEMO_C803(unsigned char Command, unsigned char * param){
 			INTCONbits.GIE = 1; // 2013_0107 added by Kuan. Bug fixed.
 		}
 		break;
+ 		case CMD_MULTI_W:
+ 		{
+		    I2C_Write(SlaveAddr,param[0],&param[2] , param[1]);
+ 		    putUSBUSART(&param[1], 1);   
+ 		}
+ 		break;
 		case 16: //change device
 		{
 			ASIC_TYPE = 0x08;
@@ -896,6 +902,12 @@ void DEMO_C802(unsigned char Command, unsigned char * param){
 			T_outFlag = 1;
 		}
 		break; // 2013_0107 added by Kuan. Bug fixed.
+ 		case CMD_MULTI_W:
+  		{
+			regAddr |= param[0];
+  	      	SPI_Write(regAddr,&param[2] , param[1]);
+ 		}
+ 		break;
 		case 16:
 		{
 			#if defined (DEBUG_COMMAND)
@@ -930,249 +942,249 @@ void DEMO_C802(unsigned char Command, unsigned char * param){
 }
 /*******************************************************************/
 void DEMO_D10(unsigned char Command, unsigned char * param){
- unsigned char SlaveAddr;
- unsigned long counter;
- char cmdDataOutStrLen;
- unsigned char tmp[5];
- char i;
- SlaveAddr = 0x30;
- if (RxFlag == 1)
- {
- switch(Command)
- {
-  case CMD_QUERY:
-  {
-  // deleted by York 2013_0102// LATD = param[0];
-   if(param[0] == 0){ //fw
-    strcpypgm2ram(USB_In_Buffer, ROM_STR_CODE_TYPE[2]); //return to user
-   }
-   else if(param[0] == 1){ //osc
-    mFreqT0cki((long*)&counter);
-    ltoa(counter, USB_In_Buffer);
-    strcatpgm2ram(USB_In_Buffer, ROM_STR_NL);
-    strcatpgm2ram(USB_In_Buffer, ROM_STR_CR);
-   }
-   else if(param[0] == 2){ //config
-    USB_In_Buffer[0] = '\0';
-    for(i = param[0] + 1; i < configure_num; i++){
-     strcatpgm2ram(USB_In_Buffer, ROM_STR_CR);
-     strcatpgm2ram(USB_In_Buffer, ROM_STR_CONFIGURE[i]);
-     strcatpgm2ram(USB_In_Buffer, ROM_STR_COMMA);
-     strcat(USB_In_Buffer, itoa(mConfig.v[i - param[0] - 1], (char*) tmp));
-    }
-   }
-   else{
-    itoa(mConfig.v[param[0] - 3], USB_In_Buffer);  //return to user
-   }
-   
-   cmdDataOutStrLen = strlen(USB_In_Buffer);
-   putUSBUSART(USB_In_Buffer, cmdDataOutStrLen);
-  }
-  break;
-  case CMD_STANDBY:
-  {
-   G_SENSOR_CE_OFF;
-  }
-  case CMD_NORMAL:
-  {
-   G_SENSOR_CE_ON;
-  }
-  break;
-  case CMD_SINGLE_R: //r,dd
-  {
-   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, 1);
-   putUSBUSART(USB_In_Buffer,1);
-  }
-  break;
-  case CMD_MULTI_R: //r,dd,n
-  {
-   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, param[1]);
-   putUSBUSART(USB_In_Buffer,param[1]);
-  }
-  break;
-  case CMD_CONT_XYZ: 
-   if(param[0] <= 0 || param[0] > 100){ //not support freq range
-    periodXYZoutFlag = 0; //turn off the periodic output flag
-   }
-   else{ //turn on the periodic output flag
-    periodXYZoutFlag = 1;
-     //xyz_output_time_count = 400/param[0]; //every count = 250us
-    xyz_output_time_count = 100/param[0]; //every count = 1ms     
-   }
-  break;
-  case CMD_SINGLE_W: //w,dd,nn,mm
-  {
-   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, 1);
-   USB_In_Buffer[1] = (USB_In_Buffer[0] & ~param[2]) | (param[1] & param[2]);
-   I2C_Write(SlaveAddr,param[0],&USB_In_Buffer[1] , 1);
-   putUSBUSART(1, 1);
-  }
-  break;
-  case CMD_MULTI_OR: //0,ddd,n
-  {
-   G_SENSOR_OTP_ENABLE_ON;
-   i = 10;
-   while(i--);
-   I2C_Read(SlaveAddr,param[1], USB_In_Buffer, param[2]);
-   G_SENSOR_OTP_ENABLE_OFF;
-   putUSBUSART(USB_In_Buffer, param[2]);
-  }
-  break;
-  case CMD_INTERRUPT:
-  {
-   T_outFlag = 0;
-   switch (param[0])
-   {
-    case 3:
-    {
-     T_outFlag = 2;
-    }
-    case 1:
-    {
-     TRISBbits.TRISB1 = 1; 
-     INTCON2bits.INTEDG1 = 1;
-     INTCON3bits.INT1E = 1; 
-       monitorINT1Flag = 1;
-    }
-    break;
-    case 4:
-    {
-     T_outFlag = 2;
-    }
-    case 2:
-    {
-     TRISBbits.TRISB2 = 1;
-     INTCON2bits.INTEDG2 = 1;
-     INTCON3bits.INT2E = 1; 
-       monitorINT2Flag = 1;
-    }
-    break; 
-   }
-  }
-  break;
-  case CMD_SINGLE_OW: //ow,ddd,bb
-  {
-   G_SENSOR_OTP_ENABLE_ON;
-   i = 10;
-   while(i--);
-   I2C_Write(SlaveAddr, param[1], param[2], 1);
-   G_SENSOR_OTP_ENABLE_OFF;
-  }
-  break;
-  case CMD_CONT_XYZT: //r,xyzT
-  {
-   if(param[0] <= 0 || param[0] > 100){
-    periodXYZoutFlag = 0;
-   } else {
-    periodXYZoutFlag = 1;
-    xyz_output_time_count = 100/param[0]; 
-   }
-   T_outFlag = 1;
-  }
-  break;
-  case CMD_CONFIGURE:
-  {
-   if(param[0] == 4){//baud rate: special case to take care
-    mConfig.i2cBaudRate_kHz = param[1]*100L;
-   }
-   else{
-    mConfig.v[param[0] - 3] = param[1];
-   }
-   
-   if(param[0] == 3 || param[0] == 4 || param[0] == 13 || param[0] == 14 || param[0] == 15){ //sar, ibr, sspm, pr2, ifs configure
-    UserInit();
-   }
-  }
-  break;
-  case CMD_MULTI_W:
-  {
-   I2C_Write(SlaveAddr,param[0],&param[2] , param[1]);
-   putUSBUSART(&param[1], 1);
-   
-  }
-  break;
-  case CMD_CHANGE_DEVICE: //change device
-  {
-   ASIC_TYPE = 0x07;
-   LATD = ASIC_TYPE;
-   INTCON3bits.INT1E = 0;  
-   INTCON3bits.INT2E = 0;
-   monitorINT1Flag = 0;
-   monitorINT2Flag = 0;
-   dataReadyFlag = 0;
-   EraseUserFlash();
-   WriteUserFlash();
-   I2C_Init();
-  }
-  default:
-  break;
- }
- RxFlag = 0;
- }
- if(dataReadyFlag){ //suspend once RxFlag is set //if(sendXYZoutFlag){
-  INTCONbits.GIE = 0;
-  dataReadyFlag = 0;
-  if(T_outFlag == 0){ //only xyz
-   tmp[0] = mConfig.xyzDataStartAddr;
-   tmp[3] = 3*mConfig.txyzDataByteLen;
-   tmp[1] = tmp[3] + mConfig.xyzDataExtraByte;
-  }
-  else{//txyz
-   tmp[0] = mConfig.txyzDataStartAddr;
-   tmp[3] = 4*mConfig.txyzDataByteLen;
-   tmp[1] = tmp[3] + mConfig.txyzDataExtraByte;
-  }
-  I2C_Read(SlaveAddr,tmp[0], param, tmp[1]);
-       
-  if(mConfig.dataAlignment == 0){ //data last
-   if(T_outFlag == 0){ //xyz
-    tmp[2] = mConfig.xyzDataExtraByte;
-   } 
-   else{ //txyz
-    tmp[2] = mConfig.txyzDataExtraByte; 
-   }
-  }
-  else if(mConfig.dataAlignment == 0xFF){ //data first
-   tmp[2] = 0;
-  }
-  else{
-   tmp[2] = mConfig.dataAlignment;
-  }
-     
-  if(mConfig.txyzDataByteLen == 2 && mConfig.dataEndianness == LITTLE_ENDIAN){ //output as the big endian format (MSByte first)
-   for(i = 0; i < tmp[3]; i+=2){
-    USB_In_Buffer[i + 2] = param[i + tmp[2] + 1];
-    USB_In_Buffer[i + 2 + 1] = param[i + tmp[2]];
-   }    
-  }
-  else{ //data format match output format of the big endian (MSByte first)
-   for(i = 0; i < tmp[3]; i++){
-    USB_In_Buffer[i + 2] = param[i + tmp[2]];
-    }
-  }
-   
-  cmdDataOutStrLen = tmp[3] + 2;
-   
-  if(T_outFlag && mConfig.tFirst == 0){ //The output should be TXYZ, but the data is XYZT, extra effort here
-      
-    //shift right by mConfig.txyzDataByteLen
-   for(i = 0; i < cmdDataOutStrLen; i++){
-    USB_In_Buffer[cmdDataOutStrLen - 1 - i + mConfig.txyzDataByteLen] = USB_In_Buffer[cmdDataOutStrLen - 1 - i];
-   }
-   
-    //shift T to front
-   for(i = 0; i < mConfig.txyzDataByteLen; i++){
-    USB_In_Buffer[2 + i] = USB_In_Buffer[cmdDataOutStrLen + i];
-   }
-  }
-   
-  //The first two bytes always be 0xFF
-  USB_In_Buffer[0] = '\xFF';
-  USB_In_Buffer[1] = '\xFF';
-   
-  INTCONbits.GIE = 1;  // global interrupt disable
-  putUSBUSART(USB_In_Buffer, cmdDataOutStrLen);
- }
+	 unsigned char SlaveAddr;
+	 unsigned long counter;
+	 char cmdDataOutStrLen;
+	 unsigned char tmp[5];
+	 char i;
+	 SlaveAddr = 0x30;
+	 if (RxFlag == 1)
+	 {
+		 switch(Command)
+		 {
+		  case CMD_QUERY:
+		  {
+			  // deleted by York 2013_0102// LATD = param[0];
+			   if(param[0] == 0){ //fw
+			    strcpypgm2ram(USB_In_Buffer, ROM_STR_CODE_TYPE[2]); //return to user
+			   }
+			   else if(param[0] == 1){ //osc
+			    mFreqT0cki((long*)&counter);
+			    ltoa(counter, USB_In_Buffer);
+			    strcatpgm2ram(USB_In_Buffer, ROM_STR_NL);
+			    strcatpgm2ram(USB_In_Buffer, ROM_STR_CR);
+			   }
+			   else if(param[0] == 2){ //config
+			    USB_In_Buffer[0] = '\0';
+			    for(i = param[0] + 1; i < configure_num; i++){
+			     strcatpgm2ram(USB_In_Buffer, ROM_STR_CR);
+			     strcatpgm2ram(USB_In_Buffer, ROM_STR_CONFIGURE[i]);
+			     strcatpgm2ram(USB_In_Buffer, ROM_STR_COMMA);
+			     strcat(USB_In_Buffer, itoa(mConfig.v[i - param[0] - 1], (char*) tmp));
+			    }
+			   }
+			   else{
+			    itoa(mConfig.v[param[0] - 3], USB_In_Buffer);  //return to user
+			   }
+			   
+			   cmdDataOutStrLen = strlen(USB_In_Buffer);
+			   putUSBUSART(USB_In_Buffer, cmdDataOutStrLen);
+		  }
+		  break;
+		  case CMD_STANDBY:
+		  {
+		   		G_SENSOR_CE_OFF;
+		  }
+		  case CMD_NORMAL:
+		  {
+		   		G_SENSOR_CE_ON;
+		  }
+		  break;
+		  case CMD_SINGLE_R: //r,dd
+		  {
+			   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, 1);
+			   putUSBUSART(USB_In_Buffer,1);
+		  }
+		  break;
+		  case CMD_MULTI_R: //r,dd,n
+		  {
+			   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, param[1]);
+			   putUSBUSART(USB_In_Buffer,param[1]);
+		  }
+		  break;
+		  case CMD_CONT_XYZ: 
+			   if(param[0] <= 0 || param[0] > 100){ //not support freq range
+			    periodXYZoutFlag = 0; //turn off the periodic output flag
+			   }
+			   else{ //turn on the periodic output flag
+			    periodXYZoutFlag = 1;
+			     //xyz_output_time_count = 400/param[0]; //every count = 250us
+			    xyz_output_time_count = 100/param[0]; //every count = 1ms     
+			   }
+		  break;
+		  case CMD_SINGLE_W: //w,dd,nn,mm
+		  {
+			   I2C_Read(SlaveAddr,param[0], USB_In_Buffer, 1);
+			   USB_In_Buffer[1] = (USB_In_Buffer[0] & ~param[2]) | (param[1] & param[2]);
+			   I2C_Write(SlaveAddr,param[0],&USB_In_Buffer[1] , 1);
+			   putUSBUSART(1, 1);
+		  }
+		  break;
+		  case CMD_MULTI_OR: //0,ddd,n
+		  {
+			   G_SENSOR_OTP_ENABLE_ON;
+			   i = 10;
+			   while(i--);
+			   I2C_Read(SlaveAddr,param[1], USB_In_Buffer, param[2]);
+			   G_SENSOR_OTP_ENABLE_OFF;
+			   putUSBUSART(USB_In_Buffer, param[2]);
+		  }
+		  break;
+		  case CMD_INTERRUPT:
+		  {
+			   T_outFlag = 0;
+			   switch (param[0])
+			   {
+			    case 3:
+			    {
+			     T_outFlag = 2;
+			    }
+			    case 1:
+			    {
+			     TRISBbits.TRISB1 = 1; 
+			     INTCON2bits.INTEDG1 = 1;
+			     INTCON3bits.INT1E = 1; 
+			       monitorINT1Flag = 1;
+			    }
+			    break;
+			    case 4:
+			    {
+			     T_outFlag = 2;
+			    }
+			    case 2:
+			    {
+			     TRISBbits.TRISB2 = 1;
+			     INTCON2bits.INTEDG2 = 1;
+			     INTCON3bits.INT2E = 1; 
+			       monitorINT2Flag = 1;
+			    }
+			    break; 
+			   }
+		  }
+		  break;
+		  case CMD_SINGLE_OW: //ow,ddd,bb
+		  {
+			   G_SENSOR_OTP_ENABLE_ON;
+			   i = 10;
+			   while(i--);
+			   I2C_Write(SlaveAddr, param[1], param[2], 1);
+			   G_SENSOR_OTP_ENABLE_OFF;
+		  }
+		  break;
+		  case CMD_CONT_XYZT: //r,xyzT
+		  {
+			   if(param[0] <= 0 || param[0] > 100){
+			    periodXYZoutFlag = 0;
+			   } else {
+			    periodXYZoutFlag = 1;
+			    xyz_output_time_count = 100/param[0]; 
+			   }
+			   T_outFlag = 1;
+		  }
+		  break;
+		  case CMD_CONFIGURE:
+		  {
+			   if(param[0] == 4){//baud rate: special case to take care
+			    mConfig.i2cBaudRate_kHz = param[1]*100L;
+			   }
+			   else{
+			    mConfig.v[param[0] - 3] = param[1];
+			   }
+			   
+			   if(param[0] == 3 || param[0] == 4 || param[0] == 13 || param[0] == 14 || param[0] == 15){ //sar, ibr, sspm, pr2, ifs configure
+			    UserInit();
+			   }
+		  }
+		  break;
+		  case CMD_MULTI_W:
+		  {
+			   I2C_Write(SlaveAddr,param[0],&param[2] , param[1]);
+			   putUSBUSART(&param[1], 1);
+		   
+		  }
+		  break;
+		  case CMD_CHANGE_DEVICE: //change device
+		  {
+			   ASIC_TYPE = 0x07;
+			   LATD = ASIC_TYPE;
+			   INTCON3bits.INT1E = 0;  
+			   INTCON3bits.INT2E = 0;
+			   monitorINT1Flag = 0;
+			   monitorINT2Flag = 0;
+			   dataReadyFlag = 0;
+			   EraseUserFlash();
+			   WriteUserFlash();
+			   I2C_Init();
+		  }
+		  default:
+		  break;
+	 }
+	 RxFlag = 0;
+	 }
+	 if(dataReadyFlag){ //suspend once RxFlag is set //if(sendXYZoutFlag){
+	  INTCONbits.GIE = 0;
+	  dataReadyFlag = 0;
+	  if(T_outFlag == 0){ //only xyz
+	   tmp[0] = mConfig.xyzDataStartAddr;
+	   tmp[3] = 3*mConfig.txyzDataByteLen;
+	   tmp[1] = tmp[3] + mConfig.xyzDataExtraByte;
+	  }
+	  else{//txyz
+	   tmp[0] = mConfig.txyzDataStartAddr;
+	   tmp[3] = 4*mConfig.txyzDataByteLen;
+	   tmp[1] = tmp[3] + mConfig.txyzDataExtraByte;
+	  }
+	  I2C_Read(SlaveAddr,tmp[0], param, tmp[1]);
+	       
+	  if(mConfig.dataAlignment == 0){ //data last
+	   if(T_outFlag == 0){ //xyz
+	    tmp[2] = mConfig.xyzDataExtraByte;
+	   } 
+	   else{ //txyz
+	    tmp[2] = mConfig.txyzDataExtraByte; 
+	   }
+	  }
+	  else if(mConfig.dataAlignment == 0xFF){ //data first
+	   tmp[2] = 0;
+	  }
+	  else{
+	   tmp[2] = mConfig.dataAlignment;
+	  }
+	     
+	  if(mConfig.txyzDataByteLen == 2 && mConfig.dataEndianness == LITTLE_ENDIAN){ //output as the big endian format (MSByte first)
+	   for(i = 0; i < tmp[3]; i+=2){
+	    USB_In_Buffer[i + 2] = param[i + tmp[2] + 1];
+	    USB_In_Buffer[i + 2 + 1] = param[i + tmp[2]];
+	   }    
+	  }
+	  else{ //data format match output format of the big endian (MSByte first)
+	   for(i = 0; i < tmp[3]; i++){
+	    USB_In_Buffer[i + 2] = param[i + tmp[2]];
+	    }
+	  }
+	   
+	  cmdDataOutStrLen = tmp[3] + 2;
+	   
+	  if(T_outFlag && mConfig.tFirst == 0){ //The output should be TXYZ, but the data is XYZT, extra effort here
+	      
+	    //shift right by mConfig.txyzDataByteLen
+	   for(i = 0; i < cmdDataOutStrLen; i++){
+	    USB_In_Buffer[cmdDataOutStrLen - 1 - i + mConfig.txyzDataByteLen] = USB_In_Buffer[cmdDataOutStrLen - 1 - i];
+	   }
+	   
+	    //shift T to front
+	   for(i = 0; i < mConfig.txyzDataByteLen; i++){
+	    USB_In_Buffer[2 + i] = USB_In_Buffer[cmdDataOutStrLen + i];
+	   }
+	  }
+	   
+	  //The first two bytes always be 0xFF
+	  USB_In_Buffer[0] = '\xFF';
+	  USB_In_Buffer[1] = '\xFF';
+	   
+	  INTCONbits.GIE = 1;  // global interrupt disable
+	  putUSBUSART(USB_In_Buffer, cmdDataOutStrLen);
+	 }
 }
 /********************************************************************/
 void mFreqT0cki(long* valPtr){
